@@ -1,0 +1,19 @@
+# Entorno Virtual
+venv/
+ENV/
+env/
+.env
+
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Datos del juego (opcional, si quieres que cada usuario tenga su propio record)
+data/save.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
