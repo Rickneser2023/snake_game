@@ -4,30 +4,49 @@ from settings import WIDTH, TEXT_COLOR, UI_ACCENT, get_font
 class UI:
     @staticmethod
     def draw_hud(surface, score, highscore, level):
-        font_small = get_font(24)
+        font_small = get_font(22)
+        font_label = get_font(14)
         
-        # Fondo del HUD (barra superior semi-transparente)
-        hud_bar = pygame.Surface((WIDTH, 40))
-        hud_bar.set_alpha(150)
-        hud_bar.fill((0, 0, 0))
-        surface.blit(hud_bar, (0, 0))
+        # Fondo del HUD con gradiente sutil
+        hud_height = 50
+        for i in range(hud_height):
+            alpha = int(200 * (1 - i/hud_height))
+            s = pygame.Surface((WIDTH, 1))
+            s.set_alpha(alpha)
+            s.fill((0, 0, 0))
+            surface.blit(s, (0, i))
 
-        score_txt = font_small.render(f"Puntos: {score}", True, TEXT_COLOR)
-        level_txt = font_small.render(f"Nivel: {level}", True, UI_ACCENT)
-        high_txt = font_small.render(f"Record: {highscore}", True, TEXT_COLOR)
+        # Renderizar textos
+        def draw_stat(x, label, value, color):
+            lbl_img = font_label.render(label, True, (150, 150, 150))
+            val_img = font_small.render(str(value), True, color)
+            surface.blit(lbl_img, (x, 5))
+            surface.blit(val_img, (x, 20))
 
-        surface.blit(score_txt, (20, 7))
-        surface.blit(level_txt, (WIDTH // 2 - 50, 7))
-        surface.blit(high_txt, (WIDTH - 200, 7))
+        draw_stat(30, "PUNTOS", score, TEXT_COLOR)
+        draw_stat(WIDTH // 2 - 40, "NIVEL", level, UI_ACCENT)
+        draw_stat(WIDTH - 150, "RECORD", highscore, TEXT_COLOR)
+
+        # Línea decorativa inferior
+        pygame.draw.line(surface, UI_ACCENT, (0, hud_height), (WIDTH, hud_height), 1)
 
     @staticmethod
     def draw_pause(surface):
         overlay = pygame.Surface((WIDTH, 600))
-        overlay.set_alpha(128)
-        overlay.fill((0, 0, 0))
+        overlay.set_alpha(160)
+        overlay.fill((10, 10, 20))
         surface.blit(overlay, (0, 0))
         
-        font_big = get_font(72)
-        txt = font_big.render("PAUSA", True, (255, 255, 255))
+        font_big = get_font(80)
+        txt = font_big.render("PAUSA", True, UI_ACCENT)
+        # Sombra
+        shadow = font_big.render("PAUSA", True, (0, 0, 0))
+        
         rect = txt.get_rect(center=(WIDTH//2, 300))
+        surface.blit(shadow, (rect.x + 4, rect.y + 4))
         surface.blit(txt, rect)
+        
+        font_msg = get_font(24)
+        msg = font_msg.render("Presiona 'P' para continuar", True, (200, 200, 200))
+        msg_rect = msg.get_rect(center=(WIDTH//2, 380))
+        surface.blit(msg, msg_rect)

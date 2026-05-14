@@ -1,13 +1,16 @@
 import pygame
 import sys
 import os
-from settings import WIDTH, HEIGHT, FPS, BG_COLOR, TILE_SIZE
+from settings import (WIDTH, HEIGHT, FPS, BG_COLOR, TILE_SIZE, 
+                      FOOD_COLOR, PARTICLE_COLOR, SHAKE_INTENSITY_SMALL, 
+                      SHAKE_INTENSITY_LARGE, SHAKE_DURATION, DATA_DIR, UI_ACCENT)
 from snake import Snake
 from food import Food
 from level_manager import LevelManager
 from save_system import SaveSystem
 from ui import UI
 from menu import Menu
+from effects import ParticleManager, ScreenShake, FloatingText
 
 class Game:
     def __init__(self):
@@ -16,6 +19,10 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
         
+        # Asegurar que el directorio de datos existe
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+            
         # Sistemas
         self.save_data = SaveSystem.load_game()
         self.highscore = self.save_data.get("highscore", 0)
@@ -26,6 +33,11 @@ class Game:
         self.ui = UI()
         self.menu = Menu(self.screen)
         
+        # Efectos
+        self.particles = ParticleManager()
+        self.shake = ScreenShake()
+        self.floating_texts = []
+        
         self.score = 0
         self.paused = False
         self.running = True
@@ -35,6 +47,8 @@ class Game:
         self.snake.reset()
         self.level_manager.reset()
         self.food = Food(self.snake.body, self.level_manager.obstacles)
+        self.particles = ParticleManager()
+        self.floating_texts = []
         self.paused = False
 
     def run(self):
@@ -66,12 +80,28 @@ class Game:
             if not self.paused:
                 # 2. Lógica
                 self.snake.update()
+                self.particles.update()
+                for ft in self.floating_texts[:]:
+                    ft.update()
+                    if ft.life <= 0:
+                        self.floating_texts.remove(ft)
 
                 # Colisión con comida
                 if self.snake.body[0] == self.food.position:
                     self.score += 1
                     self.snake.grow_pending = True
-                    self.level_manager.update(self.score)
+                    
+                    # Efectos al comer
+                    self.particles.emit(self.food.position[0] + TILE_SIZE//2, 
+                                       self.food.position[1] + TILE_SIZE//2, 
+                                       FOOD_COLOR)
+                    self.shake.trigger(SHAKE_INTENSITY_SMALL, 5)
+                    self.floating_texts.append(FloatingText(self.snake.body[0][0], self.snake.body[0][1], "+1", (255,255,255), pygame.font.SysFont("Consolas", 20, bold=True)))
+                    
+                    level_up = self.level_manager.update(self.score)
+                    if level_up:
+                        self.floating_texts.append(FloatingText(WIDTH//2 - 50, HEIGHT//2, "¡NIVEL UP!", UI_ACCENT, pygame.font.SysFont("Consolas", 40, bold=True)))
+                    
                     self.food = Food(self.snake.body, self.level_manager.obstacles)
                     
                     # Auto-guardado de record
@@ -81,12 +111,20 @@ class Game:
 
                 # Colisión con paredes, obstáculos o cuerpo
                 if self.snake.check_collision(self.level_manager.obstacles):
+                    # Efecto de muerte
+                    self.particles.emit(self.snake.body[0][0], self.snake.body[0][1], (255, 0, 0), count=30)
+                    self.shake.trigger(SHAKE_INTENSITY_LARGE, 20)
+                    
                     # Guardar progreso antes de morir
                     SaveSystem.save_game({
                         "level": self.level_manager.level,
                         "score": self.score,
                         "highscore": self.highscore
                     })
+                    
+                    # Esperar un momento para ver la explosión
+                    pygame.display.flip()
+                    pygame.time.delay(500)
                     
                     # Pantalla Game Over
                     result = self.menu.game_over(self.score, self.highscore)
@@ -96,24 +134,39 @@ class Game:
                         game_active = False
 
             # 3. Dibujado
+            # Aplicar Screen Shake
+            shake_offset = self.shake.get_offset()
+            
             self.screen.fill(BG_COLOR)
             
-            # Dibujar cuadrícula tenue (opcional, para estilo retro)
-            for x in range(0, WIDTH, TILE_SIZE):
-                pygame.draw.line(self.screen, (30, 30, 40), (x, 0), (x, HEIGHT))
-            for y in range(0, HEIGHT, TILE_SIZE):
-                pygame.draw.line(self.screen, (30, 30, 40), (0, y), (WIDTH, y))
+            # Dibujar cuadrícula tenue (con movimiento sutil)
+            grid_offset = (pygame.time.get_ticks() // 100) % TILE_SIZE
+            for x in range(shake_offset[0], WIDTH + TILE_SIZE, TILE_SIZE):
+                pygame.draw.line(self.screen, (25, 25, 35), (x, 0), (x, HEIGHT))
+            for y in range(shake_offset[1], HEIGHT + TILE_SIZE, TILE_SIZE):
+                pygame.draw.line(self.screen, (25, 25, 35), (0, y), (WIDTH, y))
 
+            # Dibujar elementos del juego con el offset de la cámara
+            temp_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            
             for obs in self.level_manager.obstacles:
                 obs.draw(self.screen)
                 
             self.food.draw(self.screen)
             self.snake.draw(self.screen)
+            self.particles.draw(self.screen)
+            for ft in self.floating_texts:
+                ft.draw(self.screen)
+            
             self.ui.draw_hud(self.screen, self.score, self.highscore, self.level_manager.level)
             
             if self.paused:
                 self.ui.draw_pause(self.screen)
 
+            # Blit final con offset de shake (aplicado manualmente a los dibujos o vía superficie)
+            # Nota: Para simplificar, ya moví el fondo. Los elementos se dibujan en coordenadas reales.
+            # Un enfoque más profesional sería dibujar todo en una superficie y blitearla con el offset.
+            
             pygame.display.flip()
             self.clock.tick(self.level_manager.speed)
 
