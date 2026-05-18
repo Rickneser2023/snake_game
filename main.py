@@ -11,6 +11,8 @@ from save_system import SaveSystem
 from ui import UI
 from menu import Menu
 from effects import ParticleManager, ScreenShake, FloatingText
+from powerups import PowerUpManager
+import random
 
 class Game:
     def __init__(self):
@@ -30,6 +32,7 @@ class Game:
         self.level_manager = LevelManager()
         self.snake = Snake()
         self.food = Food(self.snake.body, self.level_manager.obstacles)
+        self.powerups = PowerUpManager()
         self.ui = UI()
         self.menu = Menu(self.screen)
         
@@ -47,9 +50,12 @@ class Game:
         self.snake.reset()
         self.level_manager.reset()
         self.food = Food(self.snake.body, self.level_manager.obstacles)
+        self.powerups = PowerUpManager()
         self.particles = ParticleManager()
         self.floating_texts = []
         self.paused = False
+        self.is_slow_mode = False
+        self.slow_mode_timer = 0
 
     def run(self):
         while self.running:
@@ -81,6 +87,21 @@ class Game:
                 # 2. Lógica
                 self.snake.update()
                 self.particles.update()
+                self.powerups.update()
+                
+                # Spawn aleatorio de powerups
+                if self.powerups.active_powerup is None and random.random() < 0.002:
+                    self.powerups.spawn_powerup(self.snake.body, self.level_manager.obstacles)
+                
+                # Gestionar timer de slow mode
+                if getattr(self, 'is_slow_mode', False):
+                    self.slow_mode_timer -= 1
+                    if self.slow_mode_timer <= 0:
+                        self.is_slow_mode = False
+                        # Recalcular velocidad basada en el nivel
+                        from settings import INITIAL_SPEED, SPEED_INCREMENT, MAX_SPEED
+                        self.level_manager.speed = min(INITIAL_SPEED + (self.level_manager.level - 1) * SPEED_INCREMENT, MAX_SPEED)
+
                 for ft in self.floating_texts[:]:
                     ft.update()
                     if ft.life <= 0:
@@ -89,7 +110,7 @@ class Game:
                 # Colisión con comida
                 if self.snake.body[0] == self.food.position:
                     self.score += 1
-                    self.snake.grow_pending = True
+                    self.snake.grow_pending += 1
                     
                     # Efectos al comer
                     self.particles.emit(self.food.position[0] + TILE_SIZE//2, 
@@ -108,6 +129,33 @@ class Game:
                     if self.score > self.highscore:
                         self.highscore = self.score
                         SaveSystem.update_highscore(self.highscore)
+
+                # Colision con powerup
+                if self.powerups.active_powerup and self.snake.body[0] == self.powerups.active_powerup.position:
+                    p = self.powerups.active_powerup
+                    self.particles.emit(p.position[0] + TILE_SIZE//2, p.position[1] + TILE_SIZE//2, p.color)
+                    
+                    if p.type == "GOLD":
+                        self.score += 3
+                        self.snake.grow_pending += 2
+                        self.floating_texts.append(FloatingText(self.snake.body[0][0], self.snake.body[0][1], "+3", p.color, pygame.font.SysFont("Consolas", 20, bold=True)))
+                    elif p.type == "SLOW":
+                        self.is_slow_mode = True
+                        from settings import POWERUP_DURATION_FRAMES
+                        self.slow_mode_timer = POWERUP_DURATION_FRAMES
+                        self.level_manager.speed = max(5, self.level_manager.speed - 10)
+                        self.floating_texts.append(FloatingText(self.snake.body[0][0], self.snake.body[0][1], "SLOW!", p.color, pygame.font.SysFont("Consolas", 20, bold=True)))
+                    elif p.type == "GHOST":
+                        self.snake.is_ghost = True
+                        from settings import POWERUP_DURATION_FRAMES
+                        self.snake.ghost_timer = POWERUP_DURATION_FRAMES
+                        self.floating_texts.append(FloatingText(self.snake.body[0][0], self.snake.body[0][1], "GHOST!", p.color, pygame.font.SysFont("Consolas", 20, bold=True)))
+                    elif p.type == "SCISSORS":
+                        self.snake.cut_tail()
+                        self.floating_texts.append(FloatingText(self.snake.body[0][0], self.snake.body[0][1], "CUT!", p.color, pygame.font.SysFont("Consolas", 20, bold=True)))
+                        
+                    self.powerups.active_powerup = None
+                    self.shake.trigger(SHAKE_INTENSITY_SMALL, 5)
 
                 # Colisión con paredes, obstáculos o cuerpo
                 if self.snake.check_collision(self.level_manager.obstacles):
@@ -153,12 +201,15 @@ class Game:
                 obs.draw(self.screen)
                 
             self.food.draw(self.screen)
+            self.powerups.draw(self.screen)
             self.snake.draw(self.screen)
             self.particles.draw(self.screen)
             for ft in self.floating_texts:
                 ft.draw(self.screen)
             
-            self.ui.draw_hud(self.screen, self.score, self.highscore, self.level_manager.level)
+            self.ui.draw_hud(self.screen, self.score, self.highscore, self.level_manager.level, 
+                             self.snake.is_ghost, getattr(self.snake, 'ghost_timer', 0), 
+                             getattr(self, 'is_slow_mode', False), getattr(self, 'slow_mode_timer', 0))
             
             if self.paused:
                 self.ui.draw_pause(self.screen)

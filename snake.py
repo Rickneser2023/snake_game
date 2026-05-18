@@ -11,7 +11,9 @@ class Snake:
         self.body = [[100, 100], [80, 100], [60, 100]]
         self.direction = "RIGHT"
         self.next_direction = "RIGHT"
-        self.grow_pending = False
+        self.grow_pending = 0
+        self.is_ghost = False
+        self.ghost_timer = 0
 
     def handle_input(self, keys):
         if keys[pygame.K_UP] and self.direction != "DOWN":
@@ -37,12 +39,22 @@ class Snake:
             head[0] += TILE_SIZE
 
         self.body.insert(0, head)
-        if not self.grow_pending:
+        if self.grow_pending == 0:
             self.body.pop()
         else:
-            self.grow_pending = False
+            self.grow_pending -= 1
+            
+        if self.is_ghost:
+            self.ghost_timer -= 1
+            if self.ghost_timer <= 0:
+                self.is_ghost = False
         
         self.animation_offset += 0.2
+
+    def cut_tail(self):
+        if len(self.body) > 3:
+            new_len = max(3, len(self.body) // 2)
+            self.body = self.body[:new_len]
 
     def check_collision(self, obstacles):
         head = self.body[0]
@@ -50,6 +62,9 @@ class Snake:
         # Paredes
         if head[0] < 0 or head[0] >= WIDTH or head[1] < 0 or head[1] >= HEIGHT:
             return True
+            
+        if self.is_ghost:
+            return False
         
         # Propio cuerpo
         if head in self.body[1:]:
@@ -69,6 +84,9 @@ class Snake:
             g = int(SNAKE_HEAD_COLOR[1] * (1 - ratio) + SNAKE_TAIL_COLOR[1] * ratio)
             b = int(SNAKE_HEAD_COLOR[2] * (1 - ratio) + SNAKE_TAIL_COLOR[2] * ratio)
             color = (r, g, b)
+            
+            if self.is_ghost:
+                color = (147, 112, 219) # Purple color for ghost mode
 
             rect = pygame.Rect(segment[0], segment[1], TILE_SIZE, TILE_SIZE)
             

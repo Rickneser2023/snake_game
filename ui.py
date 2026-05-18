@@ -3,7 +3,7 @@ from settings import WIDTH, TEXT_COLOR, UI_ACCENT, get_font
 
 class UI:
     @staticmethod
-    def draw_hud(surface, score, highscore, level):
+    def draw_hud(surface, score, highscore, level, is_ghost=False, ghost_timer=0, is_slow=False, slow_timer=0):
         font_small = get_font(22)
         font_label = get_font(14)
         
@@ -29,6 +29,16 @@ class UI:
 
         # Línea decorativa inferior
         pygame.draw.line(surface, UI_ACCENT, (0, hud_height), (WIDTH, hud_height), 1)
+
+        # Efectos activos
+        y_pos = hud_height + 10
+        if is_ghost:
+            ghost_txt = font_small.render(f"FANTASMA: {ghost_timer//60}s", True, (147, 112, 219))
+            surface.blit(ghost_txt, (10, y_pos))
+            y_pos += 25
+        if is_slow:
+            slow_txt = font_small.render(f"TIEMPO LENTO: {slow_timer//60}s", True, (0, 255, 255))
+            surface.blit(slow_txt, (10, y_pos))
 
     @staticmethod
     def draw_pause(surface):
