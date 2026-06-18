@@ -3,7 +3,8 @@ import random
 import math
 from settings import (TILE_SIZE, WIDTH, HEIGHT, 
                       POWERUP_GOLD_COLOR, POWERUP_SLOW_COLOR, 
-                      POWERUP_GHOST_COLOR, POWERUP_SCISSORS_COLOR)
+                      POWERUP_GHOST_COLOR, POWERUP_SCISSORS_COLOR,
+                      POWERUP_DURATION_FRAMES)
 
 class PowerUp:
     def __init__(self, p_type, color, snake_body, obstacles):
@@ -11,7 +12,7 @@ class PowerUp:
         self.color = color
         self.position = self.generate_position(snake_body, obstacles)
         self.animation_offset = random.uniform(0, 10)
-        self.life_timer = 600 # lasts 10 seconds on screen before disappearing
+        self.life_timer = POWERUP_DURATION_FRAMES
 
     def generate_position(self, snake_body, obstacles):
         while True:

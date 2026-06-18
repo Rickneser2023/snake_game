@@ -1,16 +1,16 @@
 import pygame
-from settings import WIDTH, TEXT_COLOR, UI_ACCENT, get_font
+from settings import WIDTH, HEIGHT, TEXT_COLOR, UI_ACCENT, HUD_HEIGHT, COMBO_WINDOW_FRAMES, get_font
 
 class UI:
     @staticmethod
-    def draw_hud(surface, score, highscore, level, is_ghost=False, ghost_timer=0, is_slow=False, slow_timer=0):
+    def draw_hud(surface, score, highscore, level, combo=0, combo_timer=0,
+                 is_ghost=False, ghost_timer=0, is_slow=False, slow_timer=0):
         font_small = get_font(22)
         font_label = get_font(14)
         
         # Fondo del HUD con gradiente sutil
-        hud_height = 50
-        for i in range(hud_height):
-            alpha = int(200 * (1 - i/hud_height))
+        for i in range(HUD_HEIGHT):
+            alpha = int(210 * (1 - i / HUD_HEIGHT))
             s = pygame.Surface((WIDTH, 1))
             s.set_alpha(alpha)
             s.fill((0, 0, 0))
@@ -28,10 +28,21 @@ class UI:
         draw_stat(WIDTH - 150, "RECORD", highscore, TEXT_COLOR)
 
         # Línea decorativa inferior
-        pygame.draw.line(surface, UI_ACCENT, (0, hud_height), (WIDTH, hud_height), 1)
+        pygame.draw.line(surface, UI_ACCENT, (0, HUD_HEIGHT), (WIDTH, HUD_HEIGHT), 1)
+
+        if combo > 1 and combo_timer > 0:
+            combo_txt = font_small.render(f"COMBO x{combo}", True, (255, 180, 80))
+            surface.blit(combo_txt, (WIDTH // 2 - combo_txt.get_width() // 2, 6))
+            bar_w = 140
+            bar_h = 6
+            ratio = max(combo_timer / COMBO_WINDOW_FRAMES, 0)
+            bar_x = WIDTH // 2 - bar_w // 2
+            bar_y = HUD_HEIGHT - 15
+            pygame.draw.rect(surface, (40, 40, 55), (bar_x, bar_y, bar_w, bar_h), border_radius=3)
+            pygame.draw.rect(surface, (255, 180, 80), (bar_x, bar_y, int(bar_w * ratio), bar_h), border_radius=3)
 
         # Efectos activos
-        y_pos = hud_height + 10
+        y_pos = HUD_HEIGHT + 10
         if is_ghost:
             ghost_txt = font_small.render(f"FANTASMA: {ghost_timer//60}s", True, (147, 112, 219))
             surface.blit(ghost_txt, (10, y_pos))
@@ -42,7 +53,7 @@ class UI:
 
     @staticmethod
     def draw_pause(surface):
-        overlay = pygame.Surface((WIDTH, 600))
+        overlay = pygame.Surface((WIDTH, HEIGHT))
         overlay.set_alpha(160)
         overlay.fill((10, 10, 20))
         surface.blit(overlay, (0, 0))

@@ -14,16 +14,31 @@ class Snake:
         self.grow_pending = 0
         self.is_ghost = False
         self.ghost_timer = 0
+        self.animation_offset = 0
 
-    def handle_input(self, keys):
-        if keys[pygame.K_UP] and self.direction != "DOWN":
-            self.next_direction = "UP"
-        if keys[pygame.K_DOWN] and self.direction != "UP":
-            self.next_direction = "DOWN"
-        if keys[pygame.K_LEFT] and self.direction != "RIGHT":
-            self.next_direction = "LEFT"
-        if keys[pygame.K_RIGHT] and self.direction != "LEFT":
-            self.next_direction = "RIGHT"
+    def handle_input(self, key):
+        key_to_direction = {
+            pygame.K_UP: "UP",
+            pygame.K_w: "UP",
+            pygame.K_DOWN: "DOWN",
+            pygame.K_s: "DOWN",
+            pygame.K_LEFT: "LEFT",
+            pygame.K_a: "LEFT",
+            pygame.K_RIGHT: "RIGHT",
+            pygame.K_d: "RIGHT",
+        }
+        new_direction = key_to_direction.get(key)
+        if not new_direction:
+            return
+
+        opposite = {
+            "UP": "DOWN",
+            "DOWN": "UP",
+            "LEFT": "RIGHT",
+            "RIGHT": "LEFT",
+        }
+        if new_direction != opposite[self.next_direction]:
+            self.next_direction = new_direction
 
     def update(self):
         self.direction = self.next_direction
@@ -48,6 +63,7 @@ class Snake:
             self.ghost_timer -= 1
             if self.ghost_timer <= 0:
                 self.is_ghost = False
+                self.ghost_timer = 0
         
         self.animation_offset += 0.2
 
