@@ -31,7 +31,7 @@ SHAKE_DURATION = 10
 POWERUP_DURATION_FRAMES = 300 # 5 seconds at 60 FPS
 POWERUP_SPAWN_CHANCE = 0.003 # Chance por frame para spawnear un powerup
 COMBO_WINDOW_FRAMES = 180
-HUD_HEIGHT = 56
+HUD_HEIGHT = 72
 GRID_COLOR = (25, 25, 35)
 
 # Niveles

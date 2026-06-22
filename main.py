@@ -34,7 +34,11 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption("Snake Pro - Nivel Infinito")
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.fullscreen = False
+        self.base_surface = pygame.Surface((WIDTH, HEIGHT))
+        self.display_surface = None
+        self.display_size = (WIDTH, HEIGHT)
+        self._set_display_mode(self.fullscreen)
         self.clock = pygame.time.Clock()
 
         if not os.path.exists(DATA_DIR):
@@ -52,7 +56,7 @@ class Game:
         self.food = Food(self.snake.body, self.level_manager.obstacles)
         self.powerups = PowerUpManager()
         self.ui = UI()
-        self.menu = Menu(self.screen)
+        self.menu = Menu(self.base_surface)
 
         self.particles = ParticleManager()
         self.shake = ScreenShake()
@@ -71,6 +75,35 @@ class Game:
         self.powerups_collected = 0
         self.is_slow_mode = False
         self.slow_mode_timer = 0
+
+    def _set_display_mode(self, fullscreen):
+        self.fullscreen = fullscreen
+        if fullscreen:
+            info = pygame.display.Info()
+            self.display_size = (info.current_w, info.current_h)
+            flags = pygame.FULLSCREEN
+        else:
+            self.display_size = (WIDTH, HEIGHT)
+            flags = pygame.RESIZABLE
+
+        self.display_surface = pygame.display.set_mode(self.display_size, flags)
+
+    def toggle_fullscreen(self):
+        self._set_display_mode(not self.fullscreen)
+
+    def _present(self):
+        target = self.display_surface
+        self.display_size = target.get_size()
+        target.fill((0, 0, 0))
+
+        base_w, base_h = WIDTH, HEIGHT
+        target_w, target_h = self.display_size
+        scale = min(target_w / base_w, target_h / base_h)
+        draw_size = (max(1, int(base_w * scale)), max(1, int(base_h * scale)))
+        scaled = pygame.transform.smoothscale(self.base_surface, draw_size)
+        dest = scaled.get_rect(center=(target_w // 2, target_h // 2))
+        target.blit(scaled, dest)
+        pygame.display.flip()
 
     def reset_game(self):
         self.score = 0
@@ -138,11 +171,11 @@ class Game:
         for ft in self.floating_texts:
             ft.draw(world)
 
-        self.screen.blit(world, shake_offset)
+        self.base_surface.blit(world, shake_offset)
 
     def run(self):
         while self.running:
-            choice = self.menu.main_menu(self.highscore)
+            choice = self.menu.main_menu(self.highscore, self._present, self.toggle_fullscreen)
             if choice == "START":
                 self.game_loop()
 
@@ -155,7 +188,13 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
                     game_active = False
+                elif event.type == pygame.VIDEORESIZE and not self.fullscreen:
+                    self.display_size = event.size
+                    self.display_surface = pygame.display.set_mode(self.display_size, pygame.RESIZABLE)
                 elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_F11:
+                        self.toggle_fullscreen()
+                        continue
                     if event.key == pygame.K_p:
                         self.paused = not self.paused
                     elif event.key == pygame.K_ESCAPE:
@@ -293,7 +332,7 @@ class Game:
                     self.shake.trigger(SHAKE_INTENSITY_LARGE, 20)
                     self._save_run()
 
-                    pygame.display.flip()
+                    self._present()
                     pygame.time.delay(350)
 
                     result = self.menu.game_over(
@@ -302,6 +341,8 @@ class Game:
                         self.level_manager.level,
                         self.best_combo_this_run,
                         self.foods_eaten_this_run,
+                        self._present,
+                        self.toggle_fullscreen,
                     )
                     if result == "RESTART":
                         self.reset_game()
@@ -309,11 +350,11 @@ class Game:
                         game_active = False
 
             shake_offset = self.shake.get_offset()
-            self.screen.fill(BG_COLOR)
+            self.base_surface.fill(BG_COLOR)
             self._draw_world(shake_offset)
 
             self.ui.draw_hud(
-                self.screen,
+                self.base_surface,
                 self.score,
                 self.highscore,
                 self.level_manager.level,
@@ -326,9 +367,9 @@ class Game:
             )
 
             if self.paused:
-                self.ui.draw_pause(self.screen)
+                self.ui.draw_pause(self.base_surface)
 
-            pygame.display.flip()
+            self._present()
             self.clock.tick(self.level_manager.speed)
 
 
